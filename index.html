@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel Booyah</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--tx:#1b1b1f;--mut:#6b6b76;--ac:#ff6a00;--bd:#e3ded3;--ok:#14a05a;--bad:#d93a3a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f0f13;--card:#1a1a21;--tx:#f2f2f5;--mut:#9a9aa8;--bd:#2c2c37}}
+:root[data-theme="dark"]{--bg:#0f0f13;--card:#1a1a21;--tx:#f2f2f5;--mut:#9a9aa8;--bd:#2c2c37}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:520px;margin-inline:auto;padding-bottom:80px}
+h1{font-size:1.4rem;margin:4px 0 14px}h1 span{color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px}
+.card small{color:var(--mut);display:block;font-size:.75rem}
+.card b{font-size:1.6rem}
+.big b{color:var(--ac)}
+h2{font-size:1rem;margin:18px 0 8px}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+label{font-size:.75rem;color:var(--mut);display:block}
+input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:1rem}
+button{width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:var(--ac);color:#fff;font-weight:700;font-size:1rem}
+button.g{background:transparent;color:var(--mut);border:1px solid var(--bd);margin-top:14px}
+.m{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--bd);border-radius:12px;font-size:.9rem}
+.m i{font-style:normal;font-weight:700}
+.w{color:var(--ok)}.l{color:var(--mut)}
+.x{background:none;border:0;color:var(--bad);width:auto;margin:0;padding:4px 8px;font-size:1rem}
+canvas{width:100%;height:80px;display:block}
+</style>
+</head>
+<body>
+<div style="display:flex;justify-content:space-between;align-items:center"><h1>🔥 Painel <span>Booyah</span></h1><button id="cfg" class="x" style="font-size:1.5rem;color:var(--tx)" title="Configurações">⚙️</button></div>
+<div class="card" id="nk" style="display:none;margin-bottom:12px"><small>Seu nick no jogo (usado pra achar você na lista do squad)</small><input id="nick" placeholder="Ex: Boba" maxlength="30" style="margin-top:6px"><button id="nsv">Salvar nick</button></div>
+<div id="nkl" style="font-size:.8rem;color:var(--mut);margin:-6px 0 10px"></div>
+<div class="grid">
+<div class="card big"><small>K/D</small><b id="kd">0.00</b></div>
+<div class="card big"><small>Booyahs</small><b id="by">0</b></div>
+<div class="card"><small>Partidas</small><b id="n">0</b></div>
+<div class="card"><small>Média de kills</small><b id="av">0.0</b></div>
+</div>
+<h2>Evolução das kills</h2>
+<div class="card"><canvas id="c" width="480" height="80"></canvas></div>
+<h2>Nova partida</h2>
+<div class="row">
+<div><label>Kills</label><input id="k" type="number" min="0" inputmode="numeric" value="0"></div>
+<div><label>Posição</label><input id="p" type="number" min="1" max="50" inputmode="numeric" value="1"></div>
+<div><label>Dano</label><input id="d" type="number" min="0" inputmode="numeric" value="0"></div>
+</div>
+<button class="g" id="imp" style="margin-top:12px">📷 Importar print da partida</button>
+<input id="f" type="file" accept="image/*" hidden>
+<div id="st" style="font-size:.8rem;color:var(--mut);margin-top:8px"></div>
+<div id="pick"></div>
+<details style="margin-top:6px"><summary style="font-size:.75rem;color:var(--mut)">Texto lido do print</summary><pre id="raw" style="white-space:pre-wrap;font-size:.7rem;color:var(--mut)"></pre></details>
+<button id="add">Salvar partida</button>
+<h2>Histórico</h2>
+<div id="h"></div>
+<button class="g" id="rs">Zerar tudo</button>
+<script>
+var KEY="painel-ff",M=[];
+try{M=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){M=[]}
+if(!Array.isArray(M))M=[];
+function save(){try{localStorage.setItem(KEY,JSON.stringify(M))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function render(){
+var k=0,d=0,b=0;
+M.forEach(function(m){k+=m.k;if(m.p>1)d++;if(m.p===1)b++});
+$("kd").textContent=(d?k/d:k).toFixed(2);
+$("by").textContent=b;$("n").textContent=M.length;
+$("av").textContent=(M.length?k/M.length:0).toFixed(1);
+var h=$("h");h.innerHTML="";
+if(!M.length)h.innerHTML='<div class="card l">Nenhuma partida ainda. Bora jogar! 🎮</div>';
+M.slice().reverse().forEach(function(m,i){
+var idx=M.length-1-i,r=document.createElement("div");r.className="m";
+r.innerHTML='<span><i class="'+(m.p===1?"w":"l")+'">#'+m.p+(m.p===1?" 🏆":"")+'</i> · '+m.k+' kills · '+m.d+' dano</span>';
+var x=document.createElement("button");x.className="x";x.textContent="✕";
+x.onclick=function(){M.splice(idx,1);save();render()};
+r.appendChild(x);h.appendChild(r)});
+var c=$("c"),g=c.getContext("2d"),W=c.width,H=c.height;
+g.clearRect(0,0,W,H);
+var s=M.slice(-15);if(s.length<2)return;
+var mx=Math.max.apply(null,s.map(function(m){return m.k}))||1;
+g.strokeStyle="#ff6a00";g.lineWidth=3;g.lineJoin="round";g.beginPath();
+s.forEach(function(m,i){var X=8+i*(W-16)/(s.length-1),Y=H-8-(m.k/mx)*(H-16);i?g.lineTo(X,Y):g.moveTo(X,Y)});
+g.stroke()}
+$("add").onclick=function(){
+var k=Math.max(0,parseInt($("k").value)||0),p=Math.max(1,parseInt($("p").value)||1),d=Math.max(0,parseInt($("d").value)||0);
+M.push({k:k,p:p,d:d});save();render();$("k").value=0;$("p").value=1;$("d").value=0};
+$("rs").onclick=function(){if(confirm("Apagar todas as partidas?")){M=[];save();render()}};
+render();
+// ===== IMPORTAR PRINT (OCR com Tesseract.js, precisa de internet) =====
+function loadT(){return new Promise(function(ok,no){
+if(window.Tesseract)return ok();
+var t=document.createElement("script");
+t.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+t.onload=ok;t.onerror=function(){no(new Error("sem internet"))};
+document.head.appendChild(t)})}
+var NK="painel-booyah-nick",nick="";
+try{nick=localStorage.getItem(NK)||""}catch(e){}
+function showNick(){$("nkl").textContent=nick?"Jogador: "+nick:"";$("nk").style.display=nick?"none":"block";$("nick").value=nick}
+$("cfg").onclick=function(){var oc=$("nk").style.display==="none";$("nk").style.display=oc?"block":"none";$("nick").value=nick};
+$("nsv").onclick=function(){nick=$("nick").value.trim();try{localStorage.setItem(NK,nick)}catch(e){}showNick()};
+showNick();
+function norm(s){return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"")}
+function fz(n,h){
+if(!n)return 0;var prev=[],i,j;
+for(j=0;j<=h.length;j++)prev[j]=0;
+for(i=1;i<=n.length;i++){var cur=[i];for(j=1;j<=h.length;j++){cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(n[i-1]===h[j-1]?0:1))}prev=cur}
+return 1-Math.min.apply(null,prev)/n.length}
+var TR=/\d{1,2}\s*['’′`´]\s*\d{2}/;
+function rowsByHeader(words,nums,W){
+var hd=words.filter(function(w){return /^(dmg|dano)$/i.test(w.text.replace(/[^a-z]/gi,""))})[0];
+if(!hd)return [];
+var hc=(hd.bbox.x0+hd.bbox.x1)/2,tol=W*0.04;
+var cand=nums.filter(function(w){return /^\d{1,5}$/.test(w.text.trim())&&w.bbox.y0>hd.bbox.y1-5});
+var ds=cand.filter(function(w){return Math.abs((w.bbox.x0+w.bbox.x1)/2-hc)<tol});
+var rows=[];
+ds.forEach(function(dd){
+var cy=(dd.bbox.y0+dd.bbox.y1)/2,h=dd.bbox.y1-dd.bbox.y0,dc=(dd.bbox.x0+dd.bbox.x1)/2;
+var ks=cand.filter(function(w){var x=(w.bbox.x0+w.bbox.x1)/2;return w!==dd&&Math.abs((w.bbox.y0+w.bbox.y1)/2-cy)<h*0.8&&x<dc-W*0.03&&x>dc-W*0.2}).sort(function(a,b){return b.bbox.x0-a.bbox.x0});
+var kk=ks[0];
+var nm=words.filter(function(w){return Math.abs((w.bbox.y0+w.bbox.y1)/2-cy)<h*1.2&&w.bbox.x1<=(kk?kk.bbox.x0:dd.bbox.x0-W*0.1)}).sort(function(a,b){return a.bbox.x0-b.bbox.x0}).map(function(w){return w.text}).join(" ");
+rows.push({k:kk?+kk.text:null,d:+dd.text,n:nm,y:cy})});
+rows.sort(function(a,b){return a.y-b.y});
+return rows}
+function rowsFrom(tx,words){
+var rows=[],ws=(words||[]).filter(function(w){return w.bbox&&w.text});
+ws.filter(function(w){return TR.test(w.text)}).forEach(function(tw){
+var cy=(tw.bbox.y0+tw.bbox.y1)/2,h=tw.bbox.y1-tw.bbox.y0;
+var band=ws.filter(function(w){return Math.abs((w.bbox.y0+w.bbox.y1)/2-cy)<h*0.9&&w.bbox.x1<=tw.bbox.x0}).sort(function(a,b){return a.bbox.x0-b.bbox.x0});
+var nums=band.filter(function(w){return /^\d{1,5}$/.test(w.text.trim())});
+if(nums.length>=2){
+var kk=nums[nums.length-2],dd=nums[nums.length-1];
+var nm=band.filter(function(w){return w.bbox.x1<=kk.bbox.x0}).map(function(w){return w.text}).join(" ");
+rows.push({k:+kk.text,d:+dd.text,n:nm,y:cy})}});
+if(!rows.length){
+tx.split("\n").forEach(function(l){
+var t=l.match(TR);
+if(t){var pre=l.slice(0,t.index),n=pre.match(/\b\d{1,5}\b/g)||[];
+if(n.length>=2)rows.push({k:+n[n.length-2],d:+n[n.length-1],n:pre})}})}
+rows.sort(function(a,b){return (a.y||0)-(b.y||0)});
+return rows}
+function parsePrint(tx,words,nums,W){
+var r={},m;
+nums=nums||[];
+r.rows=rowsByHeader(words,nums,W||2400);
+if(!r.rows.length)r.rows=rowsFrom(tx,words.concat(nums));
+m=tx.match(/#\s*(\d{1,2})\s*\/\s*\d{2}/)||tx.match(/#\s*(\d{1,2})\b/);
+if(m)r.p=+m[1];
+else if(/booyah|booya|campe[aã]o|vencedor/i.test(tx))r.p=1;
+var nn=norm(nick);
+if(r.rows.length>1&&nn.length>=2){
+var best=null,bs=0,ties=0;
+r.rows.forEach(function(x){x.sc=fz(nn,norm(x.n));if(x.sc>bs+0.01){bs=x.sc;best=x;ties=1}else if(Math.abs(x.sc-bs)<=0.01)ties++});
+if(best&&bs>=0.6&&ties===1)r.pick=best}
+if(!r.pick&&r.rows.length===1)r.pick=r.rows[0];
+if(!r.rows.length){
+m=tx.match(/(?:abates?|elimina[cç][oõ]es|kills?|baixas?)\D{0,8}(\d{1,2})\b/i);if(m)r.k=+m[1];
+m=tx.match(/(?:dano|damage|dmg)\D{0,10}(\d{2,5})\b/i);if(m)r.d=+m[1]}
+return r}
+$("imp").onclick=function(){$("f").click()};
+$("f").onchange=async function(){
+var file=this.files&&this.files[0];if(!file)return;
+var st=$("st"),pk=$("pick"),wk=null;pk.innerHTML="";st.textContent="Carregando leitor...";
+try{
+await loadT();
+wk=await Tesseract.createWorker("por+eng",1,{logger:function(m){if(m.status==="recognizing text")st.textContent="Lendo print... "+Math.round(m.progress*100)+"%"}});
+await wk.setParameters({tessedit_pageseg_mode:"11"});
+var res=await wk.recognize(file);
+var words=res.data.words||[],tx=res.data.text||"",nums=[],W=2400;
+$("raw").textContent=tx;
+try{
+var bm=await createImageBitmap(file);W=bm.width;var H=bm.height;
+var hd=words.filter(function(w){return /^(dmg|dano)$/i.test(w.text.replace(/[^a-z]/gi,""))})[0];
+var y0=hd?Math.max(0,hd.bbox.y0-15):0,y1=hd?Math.min(H,hd.bbox.y1+H*0.4):H;
+var sc=Math.max(1,2400/W),cv=document.createElement("canvas");
+cv.width=Math.round(W*sc);cv.height=Math.max(1,Math.round((y1-y0)*sc));
+var g=cv.getContext("2d");g.drawImage(bm,0,y0,W,y1-y0,0,0,cv.width,cv.height);
+var im=g.getImageData(0,0,cv.width,cv.height),px=im.data;
+for(var i=0;i<px.length;i+=4){var l=0.299*px[i]+0.587*px[i+1]+0.114*px[i+2],v=l>160?0:255;px[i]=px[i+1]=px[i+2]=v}
+g.putImageData(im,0,0);
+st.textContent="Lendo números...";
+await wk.setParameters({tessedit_char_whitelist:"0123456789.'\"",tessedit_pageseg_mode:"11"});
+var r2=await wk.recognize(cv);
+nums=(r2.data.words||[]).map(function(w){return {text:w.text,bbox:{x0:w.bbox.x0/sc,x1:w.bbox.x1/sc,y0:w.bbox.y0/sc+y0,y1:w.bbox.y1/sc+y0}}});
+$("raw").textContent=tx+"\n--- números ---\n"+nums.map(function(w){return w.text}).join(" | ");
+}catch(e2){$("raw").textContent=tx+"\n--- erro nos números: "+(e2.message||e2)}
+var r=parsePrint(tx,words,nums,W),f=[];
+if(r.p!=null){$("p").value=r.p;f.push("posição #"+r.p)}
+var k=r.pick?r.pick.k:r.k,d=r.pick?r.pick.d:r.d;
+if(k!=null){$("k").value=k;f.push("kills "+k)}
+if(d!=null){$("d").value=d;f.push("dano "+d)}
+if(!r.pick&&r.rows.length>1){
+st.textContent="Achei "+r.rows.length+" jogadores"+(norm(nick).length>=2?" e não tenho certeza de qual é você":" (cadastre seu nick na ⚙️)")+". Toque na sua linha:";
+r.rows.forEach(function(x){
+var b=document.createElement("button");b.className="g";b.style.marginTop="6px";
+b.textContent=(x.n?x.n.slice(0,18)+" · ":"")+(x.k==null?"?":x.k)+" kills · "+x.d+" dano";
+b.onclick=function(){if(x.k!=null)$("k").value=x.k;$("d").value=x.d;pk.innerHTML="";st.textContent="Selecionado. Confira e toque em Salvar."};
+pk.appendChild(b)});
+}else{
+var miss=[];if(k==null)miss.push("kills");if(d==null)miss.push("dano");
+st.textContent=f.length?"Achei: "+f.join(", ")+"."+(miss.length?" Não li "+miss.join(" e ")+", preencha na mão.":" Confira os campos e toque em Salvar."):"Não consegui achar os números. Veja o texto lido abaixo e preencha na mão."}
+}catch(e){st.textContent="Erro: "+(e.message||"falha ao ler")+". Precisa de internet na primeira vez."}
+try{if(wk)await wk.terminate()}catch(e){}
+this.value=""};
+
+// ===== ADMOB (só funciona dentro do app Capacitor; no navegador não faz nada) =====
+var ADMOB_BANNER_ID="ca-app-pub-3940256099942544/6300978111"; // ID DE TESTE: troque pelo seu antes de publicar
+async function initAds(){
+try{
+var A=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob;
+if(!A)return;
+await A.initialize({initializeForTesting:true});
+await A.showBanner({adId:ADMOB_BANNER_ID,adSize:"ADAPTIVE_BANNER",position:"BOTTOM_CENTER",margin:0,isTesting:true});
+}catch(e){console.log("AdMob erro",e)}
+}
+document.addEventListener("deviceready",initAds);
+window.addEventListener("load",function(){setTimeout(initAds,500)});
+</script>
+</body>
+                                                                                                                                                                                                                          </html>
+                                                                                                                                                                                                                          
