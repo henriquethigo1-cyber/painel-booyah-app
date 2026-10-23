@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel Booyah</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--tx:#1b1b1f;--mut:#6b6b76;--ac:#ff6a00;--bd:#e3ded3;--ok:#14a05a;--bad:#d93a3a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f0f13;--card:#1a1a21;--tx:#f2f2f5;--mut:#9a9aa8;--bd:#2c2c37}}
+:root[data-theme="dark"]{--bg:#0f0f13;--card:#1a1a21;--tx:#f2f2f5;--mut:#9a9aa8;--bd:#2c2c37}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:16px;max-width:520px;margin-inline:auto;padding-bottom:80px}
+h1{font-size:1.4rem;margin:4px 0 14px}h1 span{color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px}
+.card small{color:var(--mut);display:block;font-size:.75rem}
+.card b{font-size:1.6rem}
+.big b{color:var(--ac)}
+h2{font-size:1rem;margin:18px 0 8px}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+label{font-size:.75rem;color:var(--mut);display:block}
+input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:1rem}
+button{width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:var(--ac);color:#fff;font-weight:700;font-size:1rem}
+button.g{background:transparent;color:var(--mut);border:1px solid var(--bd);margin-top:14px}
+.m{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--bd);border-radius:12px;font-size:.9rem}
+.m i{font-style:normal;font-weight:700}
+.w{color:var(--ok)}.l{color:var(--mut)}
+.x{background:none;border:0;color:var(--bad);width:auto;margin:0;padding:4px 8px;font-size:1rem}
+canvas{width:100%;height:80px;display:block}
+</style>
+</head>
+<body>
+<h1>🔥 Painel <span>Booyah</span></h1>
+<div class="grid">
+<div class="card big"><small>K/D</small><b id="kd">0.00</b></div>
+<div class="card big"><small>Booyahs</small><b id="by">0</b></div>
+<div class="card"><small>Partidas</small><b id="n">0</b></div>
+<div class="card"><small>Média de kills</small><b id="av">0.0</b></div>
+</div>
+<h2>Evolução das kills</h2>
+<div class="card"><canvas id="c" width="480" height="80"></canvas></div>
+<h2>Nova partida</h2>
+<div class="row">
+<div><label>Kills</label><input id="k" type="number" min="0" inputmode="numeric" value="0"></div>
+<div><label>Posição</label><input id="p" type="number" min="1" max="50" inputmode="numeric" value="1"></div>
+<div><label>Dano</label><input id="d" type="number" min="0" inputmode="numeric" value="0"></div>
+</div>
+<button class="g" id="imp" style="margin-top:12px">📷 Importar print da partida</button>
+<input id="f" type="file" accept="image/*" hidden>
+<div id="st" style="font-size:.8rem;color:var(--mut);margin-top:8px"></div>
+<details style="margin-top:6px"><summary style="font-size:.75rem;color:var(--mut)">Texto lido do print</summary><pre id="raw" style="white-space:pre-wrap;font-size:.7rem;color:var(--mut)"></pre></details>
+<button id="add">Salvar partida</button>
+<h2>Histórico</h2>
+<div id="h"></div>
+<button class="g" id="rs">Zerar tudo</button>
+<script>
+var KEY="painel-ff",M=[];
+try{M=JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){M=[]}
+if(!Array.isArray(M))M=[];
+function save(){try{localStorage.setItem(KEY,JSON.stringify(M))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function render(){
+var k=0,d=0,b=0;
+M.forEach(function(m){k+=m.k;if(m.p>1)d++;if(m.p===1)b++});
+$("kd").textContent=(d?k/d:k).toFixed(2);
+$("by").textContent=b;$("n").textContent=M.length;
+$("av").textContent=(M.length?k/M.length:0).toFixed(1);
+var h=$("h");h.innerHTML="";
+if(!M.length)h.innerHTML='<div class="card l">Nenhuma partida ainda. Bora jogar! 🎮</div>';
+M.slice().reverse().forEach(function(m,i){
+var idx=M.length-1-i,r=document.createElement("div");r.className="m";
+r.innerHTML='<span><i class="'+(m.p===1?"w":"l")+'">#'+m.p+(m.p===1?" 🏆":"")+'</i> · '+m.k+' kills · '+m.d+' dano</span>';
+var x=document.createElement("button");x.className="x";x.textContent="✕";
+x.onclick=function(){M.splice(idx,1);save();render()};
+r.appendChild(x);h.appendChild(r)});
+var c=$("c"),g=c.getContext("2d"),W=c.width,H=c.height;
+g.clearRect(0,0,W,H);
+var s=M.slice(-15);if(s.length<2)return;
+var mx=Math.max.apply(null,s.map(function(m){return m.k}))||1;
+g.strokeStyle="#ff6a00";g.lineWidth=3;g.lineJoin="round";g.beginPath();
+s.forEach(function(m,i){var X=8+i*(W-16)/(s.length-1),Y=H-8-(m.k/mx)*(H-16);i?g.lineTo(X,Y):g.moveTo(X,Y)});
+g.stroke()}
+$("add").onclick=function(){
+var k=Math.max(0,parseInt($("k").value)||0),p=Math.max(1,parseInt($("p").value)||1),d=Math.max(0,parseInt($("d").value)||0);
+M.push({k:k,p:p,d:d});save();render();$("k").value=0;$("p").value=1;$("d").value=0};
+$("rs").onclick=function(){if(confirm("Apagar todas as partidas?")){M=[];save();render()}};
+render();
+// ===== IMPORTAR PRINT (OCR com Tesseract.js, precisa de internet) =====
+function loadT(){return new Promise(function(ok,no){
+if(window.Tesseract)return ok();
+var t=document.createElement("script");
+t.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+t.onload=ok;t.onerror=function(){no(new Error("sem internet"))};
+document.head.appendChild(t)})}
+function parsePrint(tx){
+var r={},m;
+m=tx.match(/#\s*(\d{1,2})\b/)||tx.match(/(?:posi[cç][aã]o|rank|coloca[cç][aã]o|top)\D{0,6}(\d{1,2})\b/i);
+if(m)r.p=+m[1];
+else if(/booyah|booya|campe[aã]o|vencedor/i.test(tx))r.p=1;
+m=tx.match(/(?:abates?|elimina[cç][oõ]es|kills?|baixas?)\D{0,8}(\d{1,2})\b/i)||tx.match(/\b(\d{1,2})\s*(?:abates?|elimina[cç]|kills?)/i);
+if(m)r.k=+m[1];
+m=tx.match(/(?:dano|damage)\D{0,10}(\d{2,5})\b/i);
+if(m)r.d=+m[1];
+return r}
+$("imp").onclick=function(){$("f").click()};
+$("f").onchange=async function(){
+var file=this.files&&this.files[0];if(!file)return;
+var st=$("st");st.textContent="Carregando leitor...";
+try{
+await loadT();
+var res=await Tesseract.recognize(file,"por+eng",{logger:function(m){if(m.status==="recognizing text")st.textContent="Lendo print... "+Math.round(m.progress*100)+"%"}});
+var tx=res.data.text||"";$("raw").textContent=tx;
+var r=parsePrint(tx),f=[];
+if(r.k!=null){$("k").value=r.k;f.push("kills "+r.k)}
+if(r.p!=null){$("p").value=r.p;f.push("posição #"+r.p)}
+if(r.d!=null){$("d").value=r.d;f.push("dano "+r.d)}
+st.textContent=f.length?"Achei: "+f.join(", ")+". Confira os campos e toque em Salvar.":"Não consegui achar os números. Veja o texto lido abaixo e preencha na mão."
+}catch(e){st.textContent="Erro: "+(e.message||"falha ao ler")+". Precisa de internet na primeira vez."}
+this.value=""};
+
+// ===== ADMOB (só funciona dentro do app Capacitor; no navegador não faz nada) =====
+var ADMOB_BANNER_ID="ca-app-pub-3940256099942544/6300978111"; // ID DE TESTE: troque pelo seu antes de publicar
+async function initAds(){
+try{
+var A=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.AdMob;
+if(!A)return;
+await A.initialize({initializeForTesting:true});
+await A.showBanner({adId:ADMOB_BANNER_ID,adSize:"ADAPTIVE_BANNER",position:"BOTTOM_CENTER",margin:0,isTesting:true});
+}catch(e){console.log("AdMob erro",e)}
+}
+document.addEventListener("deviceready",initAds);
+window.addEventListener("load",function(){setTimeout(initAds,500)});
+</script>
+</body>
+</html>
